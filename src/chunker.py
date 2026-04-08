@@ -1,4 +1,4 @@
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import List, Dict
 
 def create_chunks(documents: List[Dict], chunk_size: int = 500, chunk_overlap: int = 50) -> List[Dict]:
