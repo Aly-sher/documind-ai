@@ -69,10 +69,7 @@ def handle_document_upload(uploaded_file):
             status.update(label="Document processed successfully!", state="complete")
             
         except Exception as e:
-            logger.error(f"Pipeline failed: {e}")
-            status.update(label="An error occurred during processing.", state="error")
-            st.error("Something went wrong. Please check the file and try again.")
-
+                    st.error(f"SYSTEM CRASH REPORT: {str(e)}")
 # --- UI Layout: Sidebar ---
 with st.sidebar:
     st.header("📄 Document Upload")
