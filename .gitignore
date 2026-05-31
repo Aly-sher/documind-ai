@@ -1,3 +1,62 @@
+# --- Secrets (NEVER commit these) ---
 .env
-venv/
+.env.*
+secrets.toml
+
+# --- Python ---
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# --- Virtual environments ---
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# --- FAISS index (generated, not source) ---
+faiss_index/
+*.faiss
+*.pkl
+
+# --- Uploaded files (never persist user data in git) ---
+uploads/
+*.pdf
+
+# --- Logs ---
+*.log
+documind.log
+
+# --- HuggingFace model cache (large, auto-downloaded) ---
+.cache/
+
+# --- Streamlit ---
+.streamlit/secrets.toml
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+htmlcov/
