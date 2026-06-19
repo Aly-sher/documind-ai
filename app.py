@@ -29,14 +29,21 @@ st.set_page_config(
 )
  
 # --- API Key Resolution (local .env → Streamlit Cloud Secrets) ---
+# --- API Key Resolution (local .env → Streamlit Cloud Secrets) ---
 load_dotenv()
 api_key: str | None = os.getenv("GROQ_API_KEY")
+
 if not api_key:
     try:
-        api_key = st.secrets["GROQ_API_KEY"]
-    except Exception:
-        pass
-if api_key:
+        api_key = st.secrets.get("GROQ_API_KEY")
+    except Exception as e:
+        st.error(f"Failed to read Streamlit secrets: {e}")
+
+# If it's STILL completely blank after checking both, print a massive warning on the UI
+if not api_key:
+    st.error("🚨 DEBUG: os.getenv() and st.secrets both returned None. The app cannot find the key anywhere on your local machine.")
+else:
+    st.success(f"✅ DEBUG: Key found! It starts with: {api_key[:8]}...")
     os.environ["GROQ_API_KEY"] = api_key
  
 # ---------------------------------------------------------------------------

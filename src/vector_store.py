@@ -1,34 +1,18 @@
 from typing import List, Dict
- 
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.docstore.document import Document
- 
-from utils.logger import logger
- 
- 
+from langchain_core.documents import Document
+
+# COMMENT THIS OUT TEMPORARILY
+# from utils.logger import logger 
+
 def build_vector_store(
     chunks: List[Dict],
     embedding_model: HuggingFaceEmbeddings,
 ) -> FAISS:
-    """
-    Build a FAISS vector store from a list of chunk dicts.
- 
-    Converts each chunk dict into a LangChain Document (preserving metadata),
-    then embeds all documents and indexes them in FAISS.
- 
-    Args:
-        chunks:          Output of chunker.create_chunks — list of dicts with
-                         "text" and "metadata" keys.
-        embedding_model: Initialised HuggingFaceEmbeddings instance from embedder.py.
- 
-    Returns:
-        FAISS vector store, ready for similarity search via .as_retriever().
- 
-    Raises:
-        ValueError: If chunks list is empty.
-        RuntimeError: If FAISS index construction fails.
-    """
+    # Import it locally inside the function scope instead
+    from utils.logger import logger 
+    
     if not chunks:
         raise ValueError("Cannot build vector store from empty chunks list.")
  

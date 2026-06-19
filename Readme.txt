@@ -1,17 +1,20 @@
-# 🚀 DocuMind AI
+# DocuMind AI: Enterprise Document Analytics Engine
 
-** An intelligent, production-grade RAG-powered document Q&A system built with Machine Learning & Generative AI.**
+**An intelligent, production-grade RAG architecture designed for high-fidelity document parsing and generative Q&A.**
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
-[![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-green)](https://langchain.com)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.32%2B-red?logo=streamlit)](https://streamlit.io)
-[![Groq](https://img.shields.io/badge/Groq-Llama%203%208B-orange)](https://groq.com)
-[![FAISS](https://img.shields.io/badge/FAISS-Vector%20Search-purple)](https://faiss.ai)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+[Python 3.10+] | [LangChain 0.3+] | [Streamlit] | [Groq Llama 3] | [FAISS]
 
-🔗 **Live Application:** https://alysher-docmind-ai.streamlit.app/
+---
 
-This application lets you upload any PDF and have a natural, multi-turn conversation with it. By combining **Semantic Search (FAISS)** with **Generative AI (Llama 3)**, it bypasses LLM token limits and training cutoffs to provide accurate, cited answers grounded strictly in your private documents.
+## 📌 Executive Overview
+DocuMind AI bridges the gap between static private documents and dynamic analytical queries. Utilizing a hybrid Retrieval-Augmented Generation (RAG) framework, the engine pairs semantic vector search with Large Language Model (LLM) generation to extract, synthesize, and cite data points directly from uploaded PDFs.
+
+## ⚙️ Core Architecture & Capabilities
+
+* **Generative Synthesis:** Leverages Llama 3 8B via the Groq API for near-instantaneous inference and context-grounded reasoning.
+* **Semantic Retrieval Pipeline:** Integrates local 384-dimensional text embeddings (`all-MiniLM-L6-v2`) with a FAISS vector index to bypass context window limitations.
+* **Deterministic Citation System:** Enforces strict anti-hallucination guardrails, requiring all generated outputs to map directly to explicit page number citations.
+* **Asynchronous Data Ingestion:** Utilizes PyMuPDF for layout-aware text extraction and recursive character chunking optimized for token boundaries.
 
 ---
 

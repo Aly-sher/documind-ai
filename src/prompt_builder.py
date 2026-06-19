@@ -16,7 +16,7 @@ addressed through prompt structure.
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
 
 from utils.logger import logger
 

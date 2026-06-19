@@ -17,8 +17,8 @@ import time
 from typing import List, Dict, Any
 
 from langchain_groq import ChatGroq
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.vectorstores import VectorStoreRetriever
 
@@ -45,20 +45,11 @@ RETRY_DELAY_SECONDS: float = 2.0
 # ---------------------------------------------------------------------------
 
 def get_llm(api_key: str) -> ChatGroq:
-    """
-    Initialise the Groq-hosted Llama 3 8B LLM.
-
-    Args:
-        api_key: Groq API key (validated before this call in app.py).
-
-    Returns:
-        ChatGroq instance with temperature=0 for deterministic, factual answers.
-    """
     return ChatGroq(
-        model=GROQ_MODEL,           # FIX: was model_name= (deprecated in langchain-groq >=0.2)
-        temperature=0,              # Deterministic — reduces hallucination
-        api_key=api_key,            # FIX: was groq_api_key= (deprecated in langchain-groq >=0.2)
-        timeout=30,                 # FIX: was request_timeout= (deprecated in langchain-groq >=0.2)
+        model=GROQ_MODEL, 
+        temperature=0, 
+        api_key=api_key.strip(),  # <-- Add .strip() here to kill hidden spaces
+        timeout=30, 
     )
 
 
