@@ -12,8 +12,8 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List
 
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_groq import ChatGroq
