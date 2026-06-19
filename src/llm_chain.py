@@ -1,26 +1,22 @@
 """
 LangChain RAG chain assembly and query execution for DocuMind AI.
 
-Wires together:
-  - ChatGroq (Llama 3 8B via Groq API)
-  - History-aware retriever (contextualises follow-up questions)
-  - Stuff documents chain (injects retrieved chunks into QA prompt)
-  - Conversation history (capped at last 3 turns per SRS §6.3)
-
-All Groq API error cases from SRS §8 are handled here:
-  - Timeout → retry once, then raise
-  - Rate limit → raise with informative message
-  - Missing API key → raise immediately with clear message
+Phase 1 changes:
+  - build_rag_chain now accepts complexity_level and language_code,
+    forwarding them to get_qa_prompt() for the Complexity Tuner and
+    Multilingual features.
 """
 
-import time
-from typing import List, Dict, Any
+from __future__ import annotations
 
-from langchain_groq import ChatGroq
-from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.messages import HumanMessage, AIMessage
+import time
+from typing import Any, Dict, List
+
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.vectorstores import VectorStoreRetriever
+from langchain_groq import ChatGroq
 
 from src.prompt_builder import get_contextualise_prompt, get_qa_prompt
 from utils.logger import logger
@@ -29,14 +25,9 @@ from utils.logger import logger
 # Constants
 # ---------------------------------------------------------------------------
 
-# SRS §6.1 — Groq model specification
-GROQ_MODEL: str = "llama3-8b-8192"
-
-# SRS §6.3 failure mode: "Context bleeding" — cap history at last N turns
+GROQ_MODEL: str       = "llama-3.1-8b-instant"
 MAX_HISTORY_TURNS: int = 3
-
-# Retry config for Groq API timeouts
-MAX_RETRIES: int = 1
+MAX_RETRIES: int       = 1
 RETRY_DELAY_SECONDS: float = 2.0
 
 
@@ -45,11 +36,12 @@ RETRY_DELAY_SECONDS: float = 2.0
 # ---------------------------------------------------------------------------
 
 def get_llm(api_key: str) -> ChatGroq:
+    """Initialise the Groq-hosted Llama 3.1 8B LLM."""
     return ChatGroq(
-        model=GROQ_MODEL, 
-        temperature=0, 
-        api_key=api_key.strip(),  # <-- Add .strip() here to kill hidden spaces
-        timeout=30, 
+        model=GROQ_MODEL,
+        temperature=0,
+        api_key=api_key,
+        timeout=30,
     )
 
 
@@ -58,51 +50,37 @@ def get_llm(api_key: str) -> ChatGroq:
 # ---------------------------------------------------------------------------
 
 def _cap_history(chat_history: List, max_turns: int = MAX_HISTORY_TURNS) -> List:
-    """
-    Return only the last `max_turns` human/AI message pairs.
-
-    Each turn = 1 HumanMessage + 1 AIMessage = 2 items.
-    Cap at max_turns * 2 items from the end of the list.
-
-    Args:
-        chat_history: List of HumanMessage / AIMessage objects.
-        max_turns:    Maximum number of conversation turns to retain.
-
-    Returns:
-        Trimmed list of message objects.
-    """
+    """Return only the last *max_turns* human/AI message pairs."""
     max_messages = max_turns * 2
     if len(chat_history) > max_messages:
         logger.debug(
-            f"Trimming chat history from {len(chat_history)} to "
-            f"{max_messages} messages ({max_turns} turns)."
+            f"Trimming chat history {len(chat_history)} → {max_messages} messages."
         )
         return chat_history[-max_messages:]
     return chat_history
 
 
 # ---------------------------------------------------------------------------
-# RAG chain builder
+# RAG chain builder  (Phase 1: complexity + language injection)
 # ---------------------------------------------------------------------------
 
-def build_rag_chain(retriever: VectorStoreRetriever, api_key: str):
+def build_rag_chain(
+    retriever: VectorStoreRetriever,
+    api_key: str,
+    complexity_level: str = "Balanced",
+    language_code: str    = "en",
+):
     """
     Assemble the full history-aware RAG chain.
 
-    Chain structure (per SRS §4.1 Phase B):
-      User question
-        → History-aware retriever (reformulates question if needed)
-        → FAISS similarity search (top-5 chunks)
-        → Stuff documents chain (injects context into QA prompt)
-        → Llama 3 via Groq API
-        → Answer with citations
-
     Args:
-        retriever: Configured FAISS retriever from retriever.py.
-        api_key:   Groq API key.
+        retriever:        Configured FAISS retriever from retriever.py.
+        api_key:          Groq API key.
+        complexity_level: "Simple" | "Balanced" | "Expert"  (Complexity Tuner)
+        language_code:    Language code from language_detector  (Multilingual)
 
     Returns:
-        Assembled LangChain retrieval chain, ready for .invoke().
+        Assembled LangChain retrieval chain ready for .invoke().
     """
     llm = get_llm(api_key)
 
@@ -112,9 +90,13 @@ def build_rag_chain(retriever: VectorStoreRetriever, api_key: str):
         prompt=get_contextualise_prompt(),
     )
 
+    # Phase 1: pass complexity + language into the QA prompt
     qa_chain = create_stuff_documents_chain(
         llm=llm,
-        prompt=get_qa_prompt(),
+        prompt=get_qa_prompt(
+            complexity_level=complexity_level,
+            language_code=language_code,
+        ),
     )
 
     rag_chain = create_retrieval_chain(
@@ -122,7 +104,10 @@ def build_rag_chain(retriever: VectorStoreRetriever, api_key: str):
         combine_docs_chain=qa_chain,
     )
 
-    logger.info(f"RAG chain assembled (model={GROQ_MODEL}).")
+    logger.info(
+        f"RAG chain assembled — model={GROQ_MODEL} "
+        f"complexity={complexity_level} lang={language_code}"
+    )
     return rag_chain
 
 
@@ -136,79 +121,63 @@ def run_query(
     chat_history: List,
 ) -> Dict[str, Any]:
     """
-    Execute a user question through the RAG chain with retry logic.
-
-    Args:
-        rag_chain:    Assembled chain from build_rag_chain().
-        question:     The user's validated question string.
-        chat_history: Full conversation history (will be capped internally).
+    Execute a question through the RAG chain with retry logic.
 
     Returns:
-        Dict with keys:
-          "answer"   → str: LLM-generated answer with citations
-          "sources"  → List[Document]: retrieved source chunks
-          "question" → str: the (possibly reformulated) standalone question
+        Dict with keys: "answer", "sources", "question"
 
     Raises:
-        RuntimeError: On rate limit, persistent timeout, or unexpected API error.
+        RuntimeError: On rate limit, persistent timeout, or auth failure.
     """
-    trimmed_history = _cap_history(chat_history)
+    trimmed = _cap_history(chat_history)
+    payload = {"input": question, "chat_history": trimmed}
 
-    payload = {
-        "input": question,
-        "chat_history": trimmed_history,
-    }
-
-    for attempt in range(1, MAX_RETRIES + 2):  # +2 so range covers 1 retry
+    for attempt in range(1, MAX_RETRIES + 2):
         try:
-            logger.info(f"Invoking RAG chain (attempt {attempt}/{MAX_RETRIES + 1})...")
+            logger.info(f"RAG chain invoke — attempt {attempt}/{MAX_RETRIES + 1}")
             response = rag_chain.invoke(payload)
 
-            answer = response.get("answer", "")
+            answer  = response.get("answer", "")
             sources = response.get("context", [])
 
             logger.info(
                 f"Response received — {len(answer)} chars, "
-                f"{len(sources)} source chunk(s) used."
+                f"{len(sources)} source chunk(s)."
             )
-            return {
-                "answer": answer,
-                "sources": sources,
-                "question": question,
-            }
+            return {"answer": answer, "sources": sources, "question": question}
 
-        except Exception as e:
-            error_str = str(e).lower()
+        except Exception as exc:
+            err = str(exc).lower()
 
-            # --- Rate limit (SRS §8) ---
-            if "rate limit" in error_str or "429" in error_str:
+            if "rate limit" in err or "429" in err:
                 logger.warning("Groq rate limit hit.")
                 raise RuntimeError(
-                    "rate_limit_error|Rate limit reached. Please wait 60 seconds before retrying."
-                ) from e
+                    "rate_limit_error|Rate limit reached. Please wait 60 seconds."
+                ) from exc
 
-            # --- Timeout with retry (SRS §8) ---
-            if "timeout" in error_str or "timed out" in error_str:
+            if "timeout" in err or "timed out" in err:
                 if attempt <= MAX_RETRIES:
-                    logger.warning(f"Request timed out — retrying in {RETRY_DELAY_SECONDS}s...")
+                    logger.warning(f"Timeout — retrying in {RETRY_DELAY_SECONDS}s…")
                     time.sleep(RETRY_DELAY_SECONDS)
                     continue
-                else:
-                    logger.error("Request timed out after retry.")
-                    raise RuntimeError(
-                        "timeout_error|Response timed out. Please try again."
-                    ) from e
+                raise RuntimeError(
+                    "timeout_error|Response timed out. Please try again."
+                ) from exc
 
-            # --- Auth / missing key ---
-            if "auth" in error_str or "api key" in error_str or "401" in error_str:
-                logger.error("Groq API authentication failed.")
+            if any(k in err for k in ("auth", "api key", "401")):
+                logger.error("Groq API auth failure.")
                 raise RuntimeError(
                     "auth_error|API key not configured or invalid. Contact support."
-                ) from e
+                ) from exc
 
-            # --- Unknown error ---
-            logger.error(f"Unexpected error from Groq API: {e}")
-            raise RuntimeError(f"unknown_error|Unexpected error: {e}") from e
+            logger.error(f"Unexpected Groq error: {exc}")
+            raise RuntimeError(f"unknown_error|Unexpected error: {exc}") from exc
 
 
-__all__ = ["build_rag_chain", "run_query", "get_llm", "GROQ_MODEL", "MAX_HISTORY_TURNS"]
+__all__ = [
+    "build_rag_chain",
+    "run_query",
+    "get_llm",
+    "GROQ_MODEL",
+    "MAX_HISTORY_TURNS",
+]
