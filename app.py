@@ -13,6 +13,7 @@ import os
 import time
 
 import streamlit as st
+from pathlib import Path
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -45,7 +46,9 @@ st.set_page_config(
 )
 
 # ── API key: local .env → Streamlit Cloud Secrets ────────────────────────────
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 api_key: str | None = os.getenv("GROQ_API_KEY")
 if not api_key:
     try:

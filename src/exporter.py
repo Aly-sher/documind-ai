@@ -264,8 +264,19 @@ def export_chat_to_pdf(
             # Answer card (next message if it exists and is assistant)
             if idx + 1 < len(messages) and messages[idx + 1]["role"] == "assistant":
                 ans = messages[idx + 1]
+                complexity = ans.get("complexity", "Balanced")
+                complexity_colors = {
+                    "Simple":   "#1A7A4A",
+                    "Balanced": "#1B4F8A",
+                    "Expert":   "#6B3FA0",
+                }
+                c_color = complexity_colors.get(complexity, "#1B4F8A")
                 a_rows = [
-                    [Paragraph("Answer", s["a_label"])],
+                    [Paragraph(
+                        f"Answer &nbsp;&nbsp;"
+                        f"<font color='{c_color}'><b>[{complexity} Mode]</b></font>",
+                        s["a_label"]
+                    )],
                     [_safe_para(ans["content"], s["a_text"])],
                 ]
                 story.append(_card(a_rows, A_BG, LINE, GREEN))
